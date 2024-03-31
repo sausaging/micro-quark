@@ -9,15 +9,34 @@ const findIndexOfAccount = (state: StateWrapper, address: string) => {
 
 type CreateInput = {
   address: string;
+
 };
 
-type BaseActionInput = {
-  type: ProofType;
-  params: Record<string, any>;
-  from: string;
+type SP1Input = {
+  address: string;
+  elf: string;
+  proofPath: string;
 };
 
-const url = "http://127.0.0.1:8080/";
+type Risc0Input = {
+  address: string;
+  imageID: string;
+  proofPath: string;
+};
+
+type MidenInput = {
+  address: string;
+  inputStack: string;
+  outputStack: string;
+  programHash: string;
+  proofPath: string;
+};
+
+type VerifyInput = {
+  address: string;
+  is_valid: boolean;
+};
+
 
 // --------- State Transition Handlers ---------
 const create: STF<QL, CreateInput> = {
@@ -34,47 +53,22 @@ const create: STF<QL, CreateInput> = {
   },
 };
 
-const submit: STF<QL, BaseActionInput> = {
+const updateVerify: STF<QL, VerifyInput> = {
   handler: ({ inputs, state }) => {
-    const { type, params, from } = inputs;
-    const fromIndex = findIndexOfAccount(state, from);
-    if (fromIndex === -1) {
+    const { address, is_valid } = inputs;
+    if (state.leaves.find((leaf) => leaf.address === address) === undefined) {
       throw new Error("Account does not exist");
     }
-    const account = state.leaves[fromIndex];
-    if (account.is_valid) {
-      throw new Error("Account already submitted and verified");
+    if (state.leaves.find((leaf) => leaf.is_valid === true)) {
+      throw new Error("Account already verified");
     }
-    switch (type) {
-      case ProofType.SP1: {
-        const { elf, proofPath } = params;
-        const body = JSON.stringify({
-          tx_id: account.address,
-          elf_file_path: elf,
-          proof_file_path: proofPath,
-        })
-        // submit the proof to the rust server and add a listener for the response
-        // update the state directly without reducers
-        break;
-      }
-      case ProofType.RISC0: {
-        const { imageID, proofPath } = params;
-        // verify the proof & update the state
-        break;
-      }
-      case ProofType.MIDEN: {
-        const { inputStack, outputStack, programHash, proofPath } = params;
-        // verify the proof & update the state
-        break;
-      }
-      default:
-        throw new Error("Invalid proof type");
-    }
+    let addressIndex = findIndexOfAccount(state, address);
+    state.leaves[addressIndex].is_valid = is_valid;
     return state;
   },
 };
 
 export const reducers: Reducers<QL> = {
   create,
-  submit
+  updateVerify
 };
